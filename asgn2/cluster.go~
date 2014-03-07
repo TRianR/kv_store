@@ -167,5 +167,5 @@ func NewServer(id int, file string) Server {
 		}
 	}()
 	fmt.Printf("Created Node: %s\n", hostname)
-	return &new_serv
+	return new_serv
 }

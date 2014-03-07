@@ -6,6 +6,29 @@ import (
 	"testing"
 	"time"
 )
+
+/*
+func checkmsg (svrArr []Server,i int) {
+        count :=0
+        ticker := time.NewTicker(10 * time.Second)
+        for {
+                select {
+                        case <- ticker.C:
+                                if ( count == 400 ) {
+                                        fmt.Printf("Server %d working fine",i)
+                                        break
+                                } else {
+                                        fmt.Printf("Server %d is bugged, recieved %d messages only \n",i,count)
+                                }
+                        default:
+                        	select {
+                                        case <-svrArr[i-1].Inbox():
+                                        count += 1
+                                }
+                }
+
+        }
+}*/
 func TestMain(t *testing.T) {
 	a := make([][]int, 5)
 	for i := range a {
