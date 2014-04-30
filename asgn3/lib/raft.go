@@ -106,102 +106,101 @@ func NewServer(id int, confile string) raftServer {
 
 func RunForever(new_serv *node, id int, total int, debug int) {
 	for {
-		select {
-		case msg := <-new_serv.quit:
-			if msg == true {
-				if debug == 1 {
-					fmt.Printf("Quitting new_serv.server: %d\n", id)
-				}
-				return
-			}
+		var msg string
+		if new_serv.isLeader() == false {
+			tim, _ := time.ParseDuration(strconv.Itoa(400+rand.Intn(401)) + "ms")
+			select {
+                        case msg := <-new_serv.quit:
+	                if msg == true {
+		                if debug == 1 {
+			                fmt.Printf("Quitting new_serv.server: %d\n", id)
+		                }
+		                return
+	                }
+			case envelope := <-new_serv.server.Inbox():
+				message := envelope.Msg.(string)
+				rpctype := strings.Split(message, " ")[0]
+				msgfrom, _ := strconv.Atoi(strings.Split(message, " ")[2])
+				msgterm, _ := strconv.Atoi(strings.Split(message, " ")[1])
+				if msgterm >= new_serv.Term() {
+					if msgterm > new_serv.Term() {
+						BecomeFollower(new_serv, msgterm)
 
-		default:
-			//PrintState(new_serv.isLeader())
-			if new_serv.isHealthy() == true {
-				var msg string
-				if new_serv.isLeader() == false {
-					tim, _ := time.ParseDuration(strconv.Itoa(400+rand.Intn(401)) + "ms")
-					select {
-
-					case envelope := <-new_serv.server.Inbox():
-						message := envelope.Msg.(string)
-						rpctype := strings.Split(message, " ")[0]
-						msgfrom, _ := strconv.Atoi(strings.Split(message, " ")[2])
-						msgterm, _ := strconv.Atoi(strings.Split(message, " ")[1])
-						if msgterm >= new_serv.Term() {
-							if msgterm > new_serv.Term() {
-								BecomeFollower(new_serv, msgterm)
-
-							}
-							if rpctype == "AppendEntries" {
-								if debug == 1 {
-									fmt.Printf("new_serv.server %d says:", id)
-									fmt.Printf("Got an AppendEntries RPC : %s\n", message)
-								}
-								BecomeFollower(new_serv, msgterm)
-
-							} else if rpctype == "RequestVote" {
-								if debug == 1 {
-									fmt.Printf("new_serv.server %d says:", id)
-									fmt.Printf("Got a RequestVote RPC: %s\n", message)
-								}
-								if new_serv.votedFor() == -1 {
-									msg = "CastVote" + " " + strconv.Itoa(new_serv.Term()) + " " + strconv.Itoa(id) + " nil"
-									new_serv.server.Outbox() <- &cluster.Envelope{Pid: msgfrom, Msg: msg}
-									new_serv.SetVotedFor(msgfrom)
-									if debug == 1 {
-										fmt.Printf("new_serv.server %d says:", id)
-										fmt.Printf("Sending CastVote to : %d\n", msgfrom)
-									}
-								}
-								new_serv.SetTerm(msgterm)
-							} else if rpctype == "CastVote" {
-								new_serv.SetVoteCount(new_serv.VoteCount() + 1)
-								if debug == 1 {
-									fmt.Printf("new_serv.server %d says:", id)
-									fmt.Printf("Got a CastVote RPC from %d, I now have %d : votes \n", msgfrom, new_serv.VoteCount())
-								}
-								if 2*new_serv.VoteCount() > total {
-									new_serv.SetLeader(true)
-									if debug == 1 {
-										fmt.Printf("new_serv.server %d says:", id)
-										fmt.Printf("I am leader now HUHUHAHA!\n")
-									}
-								}
-							}
-						}
-					case <-time.After(tim):
+					}
+					if rpctype == "AppendEntries" {
 						if debug == 1 {
 							fmt.Printf("new_serv.server %d says:", id)
-							fmt.Printf("Need new election\n")
+							fmt.Printf("Got an AppendEntries RPC : %s\n", message)
 						}
-						new_serv.SetVoteCount(1)
-						new_serv.SetVotedFor(id)
-						new_serv.SetTerm(new_serv.Term() + 1)
-						msg = "RequestVote" + " " + strconv.Itoa(new_serv.Term()) + " " + strconv.Itoa(id) + " nil"
-						new_serv.server.Outbox() <- &cluster.Envelope{Pid: cluster.BROADCAST, Msg: msg}
+						BecomeFollower(new_serv, msgterm)
 
-					}
-				} else {
-					select {
-					case envelope := <-new_serv.server.Inbox():
-						message := envelope.Msg.(string)
-						msgterm, _ := strconv.Atoi(strings.Split(message, " ")[1])
-						if msgterm > new_serv.Term() {
-							BecomeFollower(new_serv, msgterm)
-						}
-					default:
+					} else if rpctype == "RequestVote" {
 						if debug == 1 {
-							fmt.Printf("Your leader new_serv.server %d sends everyone an AppendEntries RPC\n", id)
+							fmt.Printf("new_serv.server %d says:", id)
+							fmt.Printf("Got a RequestVote RPC: %s\n", message)
 						}
-						new_serv.SetTerm(new_serv.Term() + 1)
-						msg = "AppendEntries "
-						msg += strconv.Itoa(new_serv.Term())
-						msg += " " + strconv.Itoa(id) + " nil"
-						new_serv.server.Outbox() <- &cluster.Envelope{Pid: cluster.BROADCAST, Msg: msg}
-						time.Sleep(400 * time.Millisecond)
+						if new_serv.votedFor() == -1 {
+							msg = "CastVote" + " " + strconv.Itoa(new_serv.Term()) + " " + strconv.Itoa(id) + " nil"
+							new_serv.server.Outbox() <- &cluster.Envelope{Pid: msgfrom, Msg: msg}
+							new_serv.SetVotedFor(msgfrom)
+							if debug == 1 {
+								fmt.Printf("new_serv.server %d says:", id)
+								fmt.Printf("Sending CastVote to : %d\n", msgfrom)
+							}
+						}
+						new_serv.SetTerm(msgterm)
+					} else if rpctype == "CastVote" {
+						new_serv.SetVoteCount(new_serv.VoteCount() + 1)
+						if debug == 1 {
+							fmt.Printf("new_serv.server %d says:", id)
+							fmt.Printf("Got a CastVote RPC from %d, I now have %d : votes \n", msgfrom, new_serv.VoteCount())
+						}
+						if 2*new_serv.VoteCount() > total {
+							new_serv.SetLeader(true)
+							if debug == 1 {
+								fmt.Printf("new_serv.server %d says:", id)
+								fmt.Printf("I am leader now HUHUHAHA!\n")
+							}
+						}
 					}
 				}
+			case <-time.After(tim):
+				if debug == 1 {
+					fmt.Printf("new_serv.server %d says:", id)
+					fmt.Printf("Need new election\n")
+				}
+				new_serv.SetVoteCount(1)
+				new_serv.SetVotedFor(id)
+				new_serv.SetTerm(new_serv.Term() + 1)
+				msg = "RequestVote" + " " + strconv.Itoa(new_serv.Term()) + " " + strconv.Itoa(id) + " nil"
+				new_serv.server.Outbox() <- &cluster.Envelope{Pid: cluster.BROADCAST, Msg: msg}
+
+			}
+		} else {
+			select {
+			case msg := <-new_serv.quit:
+	                if msg == true {
+		                if debug == 1 {
+			                fmt.Printf("Quitting new_serv.server: %d\n", id)
+		                }
+		                return
+	                }
+			case envelope := <-new_serv.server.Inbox():
+				message := envelope.Msg.(string)
+				msgterm, _ := strconv.Atoi(strings.Split(message, " ")[1])
+				if msgterm > new_serv.Term() {
+					BecomeFollower(new_serv, msgterm)
+				}
+			default:
+				if debug == 1 {
+					fmt.Printf("Your leader new_serv.server %d sends everyone an AppendEntries RPC\n", id)
+				}
+				new_serv.SetTerm(new_serv.Term() + 1)
+				msg = "AppendEntries "
+				msg += strconv.Itoa(new_serv.Term())
+				msg += " " + strconv.Itoa(id) + " nil"
+				new_serv.server.Outbox() <- &cluster.Envelope{Pid: cluster.BROADCAST, Msg: msg}
+				time.Sleep(400 * time.Millisecond)
 			}
 		}
 	}
