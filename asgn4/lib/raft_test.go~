@@ -276,7 +276,6 @@ func TestMain(t *testing.T) {
 	}
 	fmt.Printf("Test 7 Successful\n")
 	time.Sleep(2 * time.Second)
-	/*
 	// test 8 - integrity test after 1 server is down
 	for j := 0; j < 5; j++ {
 	        fmt.Println(j)
@@ -329,7 +328,7 @@ func TestMain(t *testing.T) {
 		svrArr[random].Start()
 	}
 	fmt.Printf("Test 8 Successful\n")
-	*/
+	
 	fmt.Printf("Successfully Tested all cases\n")
 	
 }
