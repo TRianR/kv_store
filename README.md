@@ -19,7 +19,7 @@ cluster_test.go - Contains a test routine for the above implementation to get a 
 
 Stage 3
 ========
-In this part, I have started to implement RAFT system and have implemented the leader election part. To know more about raft system read :
+[In this part](asgn3), I have started to implement RAFT system and have implemented the leader election part. To know more about raft system read :
 In Search of an Understandable Consensus Algorithm, Diego Ongaro and John Ousterhout, 2013
 
 raft.go - leader election has been implemented. Two functions Start() and Close() have been implemented. Close() will effectively exit the goroutine that handles RPCs hence simulating the real-time behaviour of a crashed server. Start() will restart the goroutine.
